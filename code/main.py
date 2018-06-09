@@ -16,12 +16,12 @@ import scipy as sp
 from sklearn.metrics import roc_curve
 from sklearn import metrics
 from sklearn.model_selection import StratifiedKFold
-OFF_LINE = True
+OFF_LINE = False
 
 def xgb_model(train_set_x,train_set_y,test_set_x):
     # 模型参数
     params = {'booster': 'gbtree',
-              'objective':'rank:pairwise',
+              'objective':'binary:logistic',
               'eta': 0.02,
               'max_depth': 5,  # 4 3
               'colsample_bytree': 0.7,#0.8
@@ -40,12 +40,11 @@ def xgb_model(train_set_x,train_set_y,test_set_x):
 def log_tabel(data):
     EVT_LBL_len = data.groupby(by= ['USRID'], as_index = False)['EVT_LBL'].agg({'EVT_LBL_len':len})
     EVT_LBL_set_len = data.groupby(by= ['USRID'], as_index = False)['EVT_LBL'].agg({'EVT_LBL_set_len':lambda x:len(set(x))})
-    TCH_TYP_set_len = data.groupby(by= ['USRID'], as_index = False)['TCH_TYP'].agg({'TCH_TYP_set_len':lambda x:len(set(x))})
     
     data['hour'] = data.OCC_TIM.map(lambda x:x.hour)
     data['day'] = data.OCC_TIM.map(lambda x:x.day)
     
-    return EVT_LBL_len,EVT_LBL_set_len,TCH_TYP_set_len
+    return EVT_LBL_len,EVT_LBL_set_len
 
 
 
@@ -63,11 +62,10 @@ if __name__ == '__main__':
     
     
     all_train = pd.merge(train_flg,train_agg,on=['USRID'],how='left')
-    EVT_LBL_len,EVT_LBL_set_len,TCH_TYP_set_len = log_tabel(train_log)
+    EVT_LBL_len,EVT_LBL_set_len = log_tabel(train_log)
     
     all_train = pd.merge(all_train,EVT_LBL_len,on=['USRID'],how='left')
     all_train = pd.merge(all_train,EVT_LBL_set_len,on=['USRID'],how='left')
-    all_train = pd.merge(all_train,TCH_TYP_set_len,on=['USRID'],how='left')
     all_train.fillna(0,inplace=True)
     if OFF_LINE == True:    
         train_x = all_train.drop(['USRID', 'FLAG'], axis=1).values
@@ -115,9 +113,6 @@ if __name__ == '__main__':
     test_x = test_set.drop(['USRID'], axis=1).values
     pred_result = xgb_model(train_x,train_y,test_x)
     result_name['RST'] = pred_result
-    maxx = max(pred_result)
-    minn = min(pred_result)
-    result_name['RST'] = result_name['RST'].map(lambda x:(x-minn)/(maxx-minn))
     result_name.to_csv('test_result.csv',index=None,sep='\t')
     
     
